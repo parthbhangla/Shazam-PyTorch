@@ -25,6 +25,7 @@ def convert_songs_to_wav(directory="Songs"):
 
             audio = AudioSegment.from_mp3(mp3_path)
             audio.export(wav_path, format="wav")
+            os.remove(mp3_path)
             print(f"🎵 Converted: {filename} -> {wav_filename}")
 
 ### 3. Split Songs into 10-second clips
