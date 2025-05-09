@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 import librosa
 
-# === Model class (must match training) ===
+# Define the MLP model architecture (same as used in training)
 class AudioFeatureMLP(nn.Module):
     def __init__(self, input_dim, num_classes):
         super().__init__()
@@ -24,7 +24,7 @@ class AudioFeatureMLP(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-# === Feature extraction ===
+# Extract features from an audio file
 def extract_audio_features(file_path):
     y, sr = librosa.load(file_path, sr=22050)
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
@@ -33,6 +33,7 @@ def extract_audio_features(file_path):
     zcr = librosa.feature.zero_crossing_rate(y)
     rms = librosa.feature.rms(y=y)
 
+    # Combine all feature types into one vector
     features = np.concatenate([
         np.mean(mfcc, axis=1),
         np.mean(chroma, axis=1),
@@ -42,7 +43,7 @@ def extract_audio_features(file_path):
     ])
     return features.astype(np.float32)
 
-# === Load dataset ===
+# Load audio data and labels from dataset directorie
 def load_data(folders=["dataset", "noisyDataset"]):
     X = []
     y = []
@@ -50,15 +51,15 @@ def load_data(folders=["dataset", "noisyDataset"]):
         for file in os.listdir(folder):
             if file.endswith(".wav"):
                 try:
-                    label = int(file.split("_")[0])  # song ID
+                    label = int(file.split("_")[0])  # Extract numeric label
                     features = extract_audio_features(os.path.join(folder, file))
                     X.append(features)
                     y.append(label)
                 except Exception as e:
-                    print(f"⚠️ Failed on {file}: {e}")
+                    print(f"Failed on {file}: {e}")
     return np.stack(X), np.array(y)
 
-# === Test loop ===
+# Evaluate model on a given dataloader
 def evaluate(model, dataloader, device):
     model.eval()
     correct = 0
@@ -71,19 +72,19 @@ def evaluate(model, dataloader, device):
             correct += (predicted == yb).sum().item()
             total += yb.size(0)
     accuracy = 100 * correct / total
-    print(f"🎯 Test Accuracy: {accuracy:.2f}%")
+    print(f"Test Accuracy: {accuracy:.2f}%")
     return accuracy
 
-# === Main ===
+# Main entry point
 def main():
-    print("📦 Loading test data...")
+    print("Loading test data...")
     X, y = load_data()
 
-    # Load saved scaler (or fit fresh if needed)
+    # Load saved scaler (or fit one if missing)
     scaler = joblib.load("scaler.pkl") if os.path.exists("scaler.pkl") else StandardScaler().fit(X)
     X = scaler.transform(X)
 
-    # Use consistent split
+    # Split off 20% of data as the test set
     _, X_test, _, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     X_test = torch.tensor(X_test, dtype=torch.float32)
@@ -92,11 +93,13 @@ def main():
     test_loader = DataLoader(TensorDataset(X_test, y_test), batch_size=32)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Initialize and load trained model
     model = AudioFeatureMLP(input_dim=X.shape[1], num_classes=len(set(y)))
     model.load_state_dict(torch.load("audio_mlp_model.pt", map_location=device))
     model.to(device)
 
-    print("🧪 Evaluating model...")
+    print("Evaluating model...")
     evaluate(model, test_loader, device)
 
 if __name__ == "__main__":

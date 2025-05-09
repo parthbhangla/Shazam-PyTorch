@@ -3,11 +3,12 @@ import os
 import re
 from pydub import AudioSegment
 
-### 1. Clean song names in Songs/directory
+# Clean song names in Songs/directory
 def clean_song_names(directory="songs"):
     for filename in os.listdir(directory):
         if filename.endswith(".mp3"):
             original_path = os.path.join(directory, filename)
+            # Remove tags like [SPOTDOWNLOADER.COM], spaces, and special characters
             new_name = re.sub(r'^\[SPOTDOWNLOADER\.COM\]\s*', '', filename)
             new_name = new_name.replace(' ', '_')
             new_name = re.sub(r'[^\w\-().]', '', new_name)
@@ -15,7 +16,7 @@ def clean_song_names(directory="songs"):
             os.rename(original_path, new_path)
             print(f"Renamed: {filename} -> {new_name}")
 
-### 2. Convert all MP3 songs to WAV
+# Convert all MP3 songs to WAV
 def convert_songs_to_wav(directory="Songs"):
     for filename in os.listdir(directory):
         if filename.endswith(".mp3"):
@@ -23,12 +24,13 @@ def convert_songs_to_wav(directory="Songs"):
             wav_filename = os.path.splitext(filename)[0] + ".wav"
             wav_path = os.path.join(directory, wav_filename)
 
+            # Convert and remove original MP3
             audio = AudioSegment.from_mp3(mp3_path)
             audio.export(wav_path, format="wav")
             os.remove(mp3_path)
-            print(f"🎵 Converted: {filename} -> {wav_filename}")
+            print(f"Converted: {filename} -> {wav_filename}")
 
-### 3. Split Songs into 10-second clips
+# Split songs into 10-second clips
 def split_songs_to_clips(source_dir="Songs", output_dir="dataset", clip_duration_sec=10):
     os.makedirs(output_dir, exist_ok=True)
     duration_ms = clip_duration_sec * 1000
@@ -40,14 +42,15 @@ def split_songs_to_clips(source_dir="Songs", output_dir="dataset", clip_duration
                 clip = audio[i*duration_ms:(i+1)*duration_ms]
                 clip_filename = f"{base_name}_clip{i}.wav"
                 clip.export(os.path.join(output_dir, clip_filename), format="wav")
-                print(f"🎧 Saved: {clip_filename}")
+                print(f"Saved clip: {clip_filename}")
 
-### 4. Generate numeric ID mapping for songs
+# Generate numeric ID mapping for songs
 def create_song_id_mapping(songs_dir="Songs", mapping_file="song_id_mapping.txt"):
     mapping = {}
     next_id = 0
     for file in sorted(os.listdir(songs_dir)):
         if file.endswith(".wav"):
+            # Simplify file name and assign unique numeric ID
             clean = re.sub(r'[^a-zA-Z0-9]', '', file.replace(".wav", "")).lower()
             if clean not in mapping:
                 mapping[clean] = f"{next_id:03d}"
@@ -55,9 +58,9 @@ def create_song_id_mapping(songs_dir="Songs", mapping_file="song_id_mapping.txt"
     with open(mapping_file, "w") as f:
         for k, v in mapping.items():
             f.write(f"{v}: {k}\n")
-    print("✅ Mapping saved to", mapping_file)
+    print("Mapping saved to", mapping_file)
 
-### 5. Rename clips using song ID mapping
+# Rename clips using song ID mapping
 def rename_clips_by_mapping(clip_dir="dataset", mapping_file="song_id_mapping.txt"):
     mapping = {}
     with open(mapping_file, "r") as f:
@@ -79,11 +82,11 @@ def rename_clips_by_mapping(clip_dir="dataset", mapping_file="song_id_mapping.tx
                 song_id = mapping[cleaned_song]
                 new_name = f"{song_id}_{int(clip_num):03d}.wav"
                 os.rename(os.path.join(clip_dir, file), os.path.join(clip_dir, new_name))
-                print(f"🔁 Renamed: {file} -> {new_name}")
+                print(f"Renamed: {file} -> {new_name}")
             else:
-                print(f"⚠️ Skipped (no mapping found): {file}")
+                print(f"Skipped (no mapping found): {file}")
 
-### 6. Add noise to each clip in dataset
+# Add noise to each clip in dataset
 def generate_noisy_dataset(clip_dir="dataset", noise_dir="noise", output_dir="noisyDataset"):
     os.makedirs(output_dir, exist_ok=True)
     clip_files = sorted(f for f in os.listdir(clip_dir) if f.endswith(".wav"))
@@ -95,19 +98,23 @@ def generate_noisy_dataset(clip_dir="dataset", noise_dir="noise", output_dir="no
 
         for noise_file in noise_files:
             noise_audio = AudioSegment.from_wav(os.path.join(noise_dir, noise_file))
+
+            # Loop or trim noise to match clip length
             if len(noise_audio) < len(clip_audio):
                 noise_audio = (noise_audio * ((len(clip_audio) // len(noise_audio)) + 1))[:len(clip_audio)]
             else:
                 noise_audio = noise_audio[:len(clip_audio)]
 
-            noise_audio = noise_audio - 15  # reduce volume
+            # Reduce noise volume before mixing
+            noise_audio = noise_audio - 15
             noisy = clip_audio.overlay(noise_audio)
+
             noise_id = os.path.splitext(noise_file)[0]
             output_name = f"{song_id}_{clip_id}_n{noise_id}.wav"
             noisy.export(os.path.join(output_dir, output_name), format="wav")
-            print(f"🎙️ Created: {output_name}")
+            print(f"Created noisy clip: {output_name}")
 
-### 7. Run the full pipeline
+# Run the full pipeline
 def build_full_pipeline():
     clean_song_names()
     convert_songs_to_wav()

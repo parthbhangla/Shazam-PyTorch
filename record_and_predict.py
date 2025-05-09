@@ -7,7 +7,7 @@ import librosa
 import joblib
 import os
 
-# === Model definition (must match training)
+# Model definition (must match the architecture used in training)
 class AudioFeatureMLP(nn.Module):
     def __init__(self, input_dim, num_classes):
         super().__init__()
@@ -22,7 +22,7 @@ class AudioFeatureMLP(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-# === Feature extraction
+# Extract audio features from a WAV file
 def extract_audio_features(file_path):
     y, sr = librosa.load(file_path, sr=22050)
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
@@ -31,6 +31,7 @@ def extract_audio_features(file_path):
     zcr = librosa.feature.zero_crossing_rate(y)
     rms = librosa.feature.rms(y=y)
 
+    # Combine all features into a single vector
     features = np.concatenate([
         np.mean(mfcc, axis=1),
         np.mean(chroma, axis=1),
@@ -40,7 +41,7 @@ def extract_audio_features(file_path):
     ])
     return features.astype(np.float32).reshape(1, -1)
 
-# === Load song ID mapping
+# Load ID to song name mapping
 def load_id_mapping(mapping_file="song_id_mapping.txt"):
     mapping = {}
     with open(mapping_file, "r") as f:
@@ -50,16 +51,16 @@ def load_id_mapping(mapping_file="song_id_mapping.txt"):
                 mapping[int(id_str)] = name
     return mapping
 
-# === Record 10-second clip
+# Record audio from microphone
 def record_audio(filename="mic_clip.wav", duration=10, sample_rate=22050):
-    print(f"🎙️ Recording {duration} seconds...")
+    print(f"Recording {duration} seconds...")
     audio = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='int16')
     sd.wait()
     write(filename, sample_rate, audio)
-    print(f"✅ Saved recording to {filename}")
+    print(f"Saved recording to {filename}")
     return filename
 
-# === Predict from WAV file
+# Predict song ID from an audio clip
 def predict(file_path):
     features = extract_audio_features(file_path)
 
@@ -70,6 +71,7 @@ def predict(file_path):
     input_dim = features_scaled.shape[1]
     num_classes = len(id_to_name)
 
+    # Load trained model
     model = AudioFeatureMLP(input_dim=input_dim, num_classes=num_classes)
     model.load_state_dict(torch.load("audio_mlp_model.pt", map_location="cpu"))
     model.eval()
@@ -80,9 +82,9 @@ def predict(file_path):
         predicted_class = torch.argmax(output, dim=1).item()
 
     song_name = id_to_name.get(predicted_class, "Unknown").replace("_", " ").title()
-    print(f"🎧 Predicted: {predicted_class:03d} → {song_name}")
+    print(f"Predicted: {predicted_class:03d} → {song_name}")
 
-# === Main
+# Entry point
 if __name__ == "__main__":
     wav_file = record_audio()
     predict(wav_file)

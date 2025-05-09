@@ -1,0 +1,1 @@
+This is the folder with the noise clips we are using. Downloaded from https://www.kaggle.com/datasets/minsithu/audio-noise-dataset?select=sample-9.webm
